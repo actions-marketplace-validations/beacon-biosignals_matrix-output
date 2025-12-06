@@ -40,23 +40,24 @@ runs:
         input_yaml: ${{ inputs.yaml }}
         self_job_id: ${{ steps.job.outputs.id }}
     - name: Upload job output
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: matrix-output-${{ github.job }}-${{ strategy.job-index }}
         path: job-output.json
         if-no-files-found: error
     - name: Download job matrix outputs
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v6
       with:
         pattern: matrix-output-${{ github.job }}-*
         path: matrix-output
-        merge-multiple: false
+        merge-multiple: false  # As of v5 individual subdirectories will only be created if the pattern matches more than one artifact
     - name: Determine artifact jobs
       id: artifact-jobs
       shell: bash
       run: |
         # Determine artifact jobs
-        jobs="$(jq -rs '[.[].metadata."job-id"] | to_entries | map({id: .value, index: .key})' matrix-output/*/*.json)"
+        shopt -s globstar
+        jobs="$(jq -rs '[.[].metadata."job-id"] | to_entries | map({id: .value, index: .key})' matrix-output/**/*.json)"
 
         if [[ "$RUNNER_DEBUG" -eq 1 ]] || [[ "${{ inputs.debug }}" == "true" ]]; then
             echo "Artifact jobs:" >&2
@@ -98,7 +99,7 @@ runs:
             # exclude these entries as we only want jobs which have actually executed.
             attempt_jobs="$(jq 'map(select(.completed_at == null or .completed_at >= .created_at))' <<<"${attempt_jobs}")"
 
-            jobs="$(jq -e --argjson attempt_jobs "${attempt_jobs}" '. |= . + $attempt_jobs' <<<"$jobs")"
+            jobs="$(jq -s 'add' <<<"${jobs}" <<<"${attempt_jobs}")"
         done
 
         # Remove older jobs which were re-run
@@ -155,7 +156,7 @@ runs:
         artifact_jobs: ${{ steps.artifact-jobs.outputs.json }}
         executed_jobs: ${{ steps.executed-jobs.outputs.json }}
     - name: Upload sync artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       if: ${{ steps.matrix-jobs.outputs.num == strategy.job-total && steps.matrix-jobs.outputs.num-running > 1 }}
       with:
         name: matrix-output-sync-${{ github.job }}-${{ strategy.job-index }}
@@ -212,11 +213,12 @@ runs:
       shell: bash
       run: |
         # Merge job matrix output
+        shopt -s globstar
 
         # Specify our multiline output using GH action flavored heredocs
         # https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions#multiline-strings
         {
             echo "json<<EOF"
-            jq -s '[.[].outputs]' matrix-output/*/*.json
+            jq -s '[.[].outputs]' matrix-output/**/*.json
             echo "EOF"
         } | tee -a "$GITHUB_OUTPUT"

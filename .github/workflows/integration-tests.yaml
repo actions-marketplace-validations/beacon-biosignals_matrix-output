@@ -22,7 +22,7 @@ jobs:
     outputs:
       results-json: ${{ steps.matrix-output.outputs.json }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # Slow down on job to ensure that this is the last run
       - if: ${{ strategy.job-index == 0 }}
         run: sleep 5
@@ -80,7 +80,7 @@ jobs:
     outputs:
       results-json: ${{ steps.matrix-output.outputs.json }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       # Keep `id` the same between `setup-simple` and `setup-complex`
       # to ensure we can separate output per job.
       - uses: ./
@@ -143,7 +143,7 @@ jobs:
       actions: read
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./
         id: matrix-output
         continue-on-error: true
@@ -161,7 +161,7 @@ jobs:
       actions: read
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ./
         id: matrix-output1
         continue-on-error: true
@@ -178,7 +178,10 @@ jobs:
           debug: true
       - name: Action failed
         if: ${{ steps.matrix-output1.outcome != 'success' || steps.matrix-output2.outcome != 'failure' }}
-        run: exit 1
+        run: |
+          echo "matrix-output1: ${{ steps.matrix-output1.outcome }}" >&2
+          echo "matrix-output2: ${{ steps.matrix-output2.outcome }}" >&2
+          exit 1
 
   setup-race-condition:
     name: Setup Race Condition
@@ -195,7 +198,7 @@ jobs:
     outputs:
       results-json: ${{ steps.matrix-output.outputs.json }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - if: ${{ strategy.job-index == 0 }}
         run: sleep 5
       - uses: ./
